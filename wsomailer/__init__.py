@@ -176,5 +176,5 @@ def main() -> int:
         log.info('finished')
         return 0
     except Exception as ex:
-        log.exception(ex)
+        print(ex, file=sys.stderr)
         return 1
