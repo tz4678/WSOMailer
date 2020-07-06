@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "wsomailer"
+version = "0.1.0"
+description = "WebShellOrb Mailer"
+authors = ["Sergey M <tz4678@gmail.com>"]
+license = "Unlicense"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+requests = "^2.24.0"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+wsomailer = "wsomailer:main"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
