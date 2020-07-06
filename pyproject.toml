@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "WebShellOrb Mailer"
 authors = ["Sergey M <tz4678@gmail.com>"]
 license = "Unlicense"
+readme = "README.md"
+homepage = "https://github.com/tz4678/WSOMailer"
+exclude = [".git"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
