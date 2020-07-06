@@ -10,11 +10,11 @@ from typing import Tuple
 
 import requests
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 log = logging.getLogger(__name__.split('.')[0])
 
-pattern = re.compile('{[^{}]+}')
+pattern = re.compile(r'{([^{}]+)}')
 php_code = """
 mb_language('uni');
 mb_internal_encoding('utf-8');
@@ -30,11 +30,8 @@ echo($res ? 't' : 'f');
 
 
 def random_text(s: str) -> str:
-    def replacer(m):
-        return random.choice(m.group()[1:-1].split('|'))
-
     while True:
-        r = pattern.sub(replacer, s)
+        r = pattern.sub(lambda m: random.choice(m.group()[1:-1].split('|')), s)
         if r == s:
             return r
         s = r
@@ -147,7 +144,8 @@ def main() -> int:
             return 1
         args = parser.parse_args()
         with open(args.shells_filename) as f:
-            shells = list(set(f.read().splitlines()))
+            shells = set(f.read().splitlines())
+            shells = list(shells)
         with open(args.emails_filename) as f:
             emails = set(f.read().splitlines())
         logging.basicConfig()
