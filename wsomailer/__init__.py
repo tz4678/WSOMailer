@@ -31,7 +31,7 @@ echo($res ? 't' : 'f');
 
 def random_text(s: str) -> str:
     while True:
-        r = pattern.sub(lambda m: random.choice(m.group()[1:-1].split('|')), s)
+        r = pattern.sub(lambda m: random.choice(m.group(1).split('|')), s)
         if r == s:
             return r
         s = r
