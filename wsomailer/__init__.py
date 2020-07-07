@@ -10,7 +10,7 @@ from typing import Tuple
 
 import requests
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 log = logging.getLogger(__name__.split('.')[0])
 
@@ -103,21 +103,21 @@ def main() -> int:
         parser.add_argument(
             'emails_filename', metavar='EMAILS_FILE', help='emails filename'
         )
-        parser.add_argument('message', metavar='MESSAGE', help='email message')
+        parser.add_argument('message', metavar='MESSAGE', help='message')
         parser.add_argument(
-            '-s', '--subject', help='email subject', default='No Subject'
+            '-s', '--subject', help='subject', default='No Subject'
         )
         parser.add_argument(
-            '--reply-to', dest='reply_to', help='email reply-to',
+            '--reply-to', dest='reply_to', help='reply-to',
         )
         parser.add_argument(
             '-t', '--timeout', help='request timeout', default=15.0, type=float
         )
         parser.add_argument(
             '-w',
-            '--num_workers',
+            '--workers',
             help='number of workers',
-            default=os.cpu_count(),
+            default=os.cpu_count() * 2,
             type=int,
         )
         parser.add_argument('-l', '--logfile', help='log output filename')
@@ -138,10 +138,10 @@ def main() -> int:
             dest='loglevel',
             const=logging.INFO,
         )
-        if len(sys.argv) < 3:
+        if len(sys.argv) == 1:
             print_banner()
-            parser.print_help()
-            return 1
+            parser.print_usage()
+            return 0
         args = parser.parse_args()
         with open(args.shells_filename) as f:
             shells = set(f.read().splitlines())
@@ -157,9 +157,10 @@ def main() -> int:
         q = queue.Queue()
         for email in emails:
             q.put_nowait(email)
-        stopped = Event()
+        num_workers = min(len(emails), args.workers)
         workers = []
-        for _ in range(args.num_workers):
+        stopped = Event()
+        for _ in range(num_workers):
             t = Thread(
                 target=worker,
                 kwargs=dict(args=args, q=q, shells=shells, stopped=stopped,),
@@ -169,7 +170,7 @@ def main() -> int:
             t.start()
         q.join()
         stopped.set()
-        for i in range(args.num_workers):
+        for i in range(num_workers):
             workers[i].join()
         log.info('finished')
         return 0
